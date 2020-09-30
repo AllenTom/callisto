@@ -2,6 +2,7 @@ package callisto
 
 import (
 	"fmt"
+	"github.com/fogleman/gg"
 )
 
 type RenderTask struct {
@@ -47,11 +48,12 @@ type Box struct {
 	DrawArea      DrawArea
 	Padding       ElementPadding
 	BoxSizing     BoxSizing
+	Border        ElementBorder
 }
 
 func (b *Box) TransformChildPosition() {
-	b.DrawArea.X = b.X + b.Padding.Left
-	b.DrawArea.Y = b.Y + b.Padding.Top
+	b.DrawArea.X = b.X + b.Padding.Left + float64(b.Border.Left.Width)
+	b.DrawArea.Y = b.Y + b.Padding.Top + float64(b.Border.Top.Width)
 	if b.LayoutManager != nil {
 		b.LayoutManager.Place(b)
 	}
@@ -60,6 +62,7 @@ func (b *Box) TransformChildPosition() {
 	}
 }
 func (b *Box) CalculationDimension(parent Element) {
+	// resolve origin width
 	solveWidth := b.Width
 	solveHeight := b.Height
 	if parent != nil && b.UserParentRelative {
@@ -80,19 +83,16 @@ func (b *Box) CalculationDimension(parent Element) {
 	b.DrawArea.Width = solveWidth
 	b.DrawArea.Height = solveHeight
 
-	// with padding
-	b.Width = solveWidth + b.Padding.Left + b.Padding.Right
-	b.Height = solveHeight + b.Padding.Top + b.Padding.Bottom
-
-	// reassign with box sizing
-	if b.BoxSizing == BorderBox {
-		b.DrawArea.Width = b.DrawArea.Width - b.Padding.Left - b.Padding.Right
-		b.DrawArea.Height = b.DrawArea.Height - b.Padding.Top - b.Padding.Bottom
-
-		b.Width = b.Width - b.Padding.Left - b.Padding.Right
-		b.Height = b.Height - b.Padding.Top - b.Padding.Bottom
+	if b.BoxSizing != BorderBox {
+		// adjust with padding
+		b.Width = solveWidth + b.Padding.Left + b.Padding.Right + float64(b.Border.Left.Width) + float64(b.Border.Right.Width)
+		b.Height = solveHeight + b.Padding.Top + b.Padding.Bottom + float64(b.Border.Top.Width) + float64(b.Border.Top.Width)
 	}
 
+	if b.BoxSizing == BorderBox {
+		b.Width = solveWidth
+		b.Height = solveHeight
+	}
 }
 func (b *Box) ApplyChildPosition() {
 	if b.Children != nil {
@@ -164,11 +164,38 @@ func (b *Box) GetWeight() float64 {
 
 func (b *Box) Render(renderContext *RenderContext) {
 	context := renderContext.Context
+	elementContext := gg.NewContext(int(b.Width), int(b.Height))
 	if len(b.Color) != 0 {
-		context.DrawRectangle(b.X, b.Y, b.Width, b.Height)
-		context.SetHexColor(b.Color)
-		context.Fill()
+		elementContext.DrawRectangle(0, 0, b.Width, b.Height)
+		elementContext.SetHexColor(b.Color)
+		elementContext.Fill()
 	}
+	//draw top
+	elementContext.SetLineWidth(float64(b.Border.Top.Width))
+	elementContext.SetHexColor(b.Border.Top.Color)
+	elementContext.DrawLine(0, 0, b.Width, 0)
+	elementContext.Stroke()
+
+	//draw right
+	elementContext.SetLineWidth(float64(b.Border.Right.Width))
+	elementContext.SetHexColor(b.Border.Right.Color)
+	elementContext.DrawLine(b.Width, 0, b.Width, b.Height)
+	elementContext.Stroke()
+
+	//draw bottom
+	elementContext.SetLineWidth(float64(b.Border.Bottom.Width))
+	elementContext.SetHexColor(b.Border.Bottom.Color)
+	elementContext.DrawLine(0, b.Height, b.Width, b.Height)
+	elementContext.Stroke()
+
+	//draw left
+	elementContext.SetLineWidth(float64(b.Border.Left.Width))
+	elementContext.SetHexColor(b.Border.Left.Color)
+	elementContext.DrawLine(0, 0, 0, b.Height)
+	elementContext.Stroke()
+
+	context.DrawImage(elementContext.Image(), int(b.X), int(b.Y))
+
 }
 
 type Edge struct {
@@ -291,4 +318,15 @@ func (b *Box) ApplyAlign() {
 			fmt.Println(targetY - child.GetHeight()/2)
 		}
 	}
+}
+
+type Border struct {
+	Color string
+	Width int
+}
+type ElementBorder struct {
+	Top    Border
+	Right  Border
+	Bottom Border
+	Left   Border
 }

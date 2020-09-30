@@ -94,3 +94,58 @@ func ParseFont(rawString string) string {
 	}
 	return ""
 }
+
+func ParseBorder(rawString string) (callisto.ElementBorder, error) {
+	border := callisto.ElementBorder{
+		Top:    callisto.Border{},
+		Right:  callisto.Border{},
+		Bottom: callisto.Border{},
+		Left:   callisto.Border{},
+	}
+	// not set border
+	if len(rawString) == 0 {
+		return border, nil
+	}
+	width, color, err := ParseBorderWithPosition(rawString)
+	if err != nil {
+		return border, err
+	}
+
+	border.Top.Color = color
+	border.Right.Color = color
+	border.Bottom.Color = color
+	border.Left.Color = color
+
+	border.Top.Width = width
+	border.Right.Width = width
+	border.Bottom.Width = width
+	border.Left.Width = width
+
+	return border, nil
+}
+
+func ParseBorderWithPosition(rawString string) (width int, color string, err error) {
+	if len(rawString) == 0 {
+		return
+	}
+	rawGroup := strings.Split(rawString, " ")
+	if len(rawGroup) != 2 {
+		err = errors.New("unexpected border value")
+		return
+	}
+	for _, rawValue := range rawGroup {
+		if strings.Contains(rawValue, "#") {
+			color = rawValue
+		}
+
+		if strings.Contains(rawValue, "px") {
+			parseWidth, err := strconv.Atoi(strings.ReplaceAll(rawValue, "px", ""))
+			if err != nil {
+				err = errors.New("unexpected border width value")
+				return 0, "", err
+			}
+			width = parseWidth
+		}
+	}
+	return
+}
